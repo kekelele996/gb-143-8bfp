@@ -71,17 +71,50 @@ const createTables = async (): Promise<void> => {
         complainant_id UUID,
         complaint_type VARCHAR(50) NOT NULL,
         description TEXT NOT NULL,
-        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'rejected')),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'rejected', 'overturned')),
         resolution TEXT,
         credit_penalty INTEGER DEFAULT 0,
         points_penalty INTEGER DEFAULT 0,
         handled_by VARCHAR(100),
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        resolved_at TIMESTAMP
+        resolved_at TIMESTAMP,
+        appeal_status VARCHAR(20) CHECK (appeal_status IS NULL OR appeal_status IN ('pending', 'approved', 'rejected')),
+        penalty_revoked BOOLEAN NOT NULL DEFAULT false,
+        appeal_deadline TIMESTAMP
       );
 
       CREATE INDEX IF NOT EXISTS idx_complaints_volunteer_id ON complaints(volunteer_id);
       CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status);
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS complaint_appeals (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        complaint_id UUID NOT NULL REFERENCES complaints(id) ON DELETE CASCADE,
+        volunteer_id UUID NOT NULL REFERENCES volunteers(id) ON DELETE CASCADE,
+        reason TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+        review_note TEXT,
+        reviewed_by VARCHAR(100),
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        reviewed_at TIMESTAMP
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_complaint_appeals_complaint_id
+        ON complaint_appeals(complaint_id);
+      CREATE INDEX IF NOT EXISTS idx_complaint_appeals_volunteer_id
+        ON complaint_appeals(volunteer_id);
+      CREATE INDEX IF NOT EXISTS idx_complaint_appeals_status
+        ON complaint_appeals(status);
+    `);
+
+    await client.query(`
+      ALTER TABLE complaints ADD COLUMN IF NOT EXISTS appeal_status VARCHAR(20);
+      ALTER TABLE complaints ADD COLUMN IF NOT EXISTS penalty_revoked BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE complaints ADD COLUMN IF NOT EXISTS appeal_deadline TIMESTAMP;
+      ALTER TABLE complaints DROP CONSTRAINT IF EXISTS complaints_status_check;
+      ALTER TABLE complaints ADD CONSTRAINT complaints_status_check
+        CHECK (status IN ('pending', 'resolved', 'rejected', 'overturned'));
     `);
 
     await client.query(`

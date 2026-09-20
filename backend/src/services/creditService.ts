@@ -1,3 +1,4 @@
+import { PoolClient } from 'pg';
 import { Volunteer, ServiceRecord, Complaint, CreditLog, CreditScoreResult } from '../types';
 import pool from '../db/pool';
 
@@ -24,19 +25,22 @@ export const calculateCreditScore = (
 
   score -= noShowCount * 20;
 
-  const unresolvedComplaints = recentComplaints.filter(c => c.status === 'pending' || c.status === 'resolved').length;
+  const unresolvedComplaints = recentComplaints.filter(
+    c => (c.status === 'pending' || c.status === 'resolved') && !c.penalty_revoked
+  ).length;
   score -= unresolvedComplaints * 15;
 
   return Math.max(MIN_CREDIT_SCORE, Math.min(MAX_CREDIT_SCORE, Math.round(score)));
 };
 
 export const recalculateCreditScore = async (
-  volunteerId: string
+  volunteerId: string,
+  existingClient?: PoolClient
 ): Promise<CreditScoreResult | null> => {
-  const client = await pool.connect();
+  const ownClient = existingClient ?? await pool.connect();
 
   try {
-    const volunteerResult = await client.query(
+    const volunteerResult = await ownClient.query(
       'SELECT * FROM volunteers WHERE id = $1',
       [volunteerId]
     );
@@ -48,19 +52,19 @@ export const recalculateCreditScore = async (
     const volunteer = volunteerResult.rows[0] as Volunteer;
     const beforeScore = volunteer.credit_score;
 
-    const servicesResult = await client.query(
+    const servicesResult = await ownClient.query(
       'SELECT * FROM service_records WHERE volunteer_id = $1 ORDER BY recorded_at DESC LIMIT 50',
       [volunteerId]
     );
     const recentServices = servicesResult.rows as ServiceRecord[];
 
-    const complaintsResult = await client.query(
-      "SELECT * FROM complaints WHERE volunteer_id = $1 AND status IN ('pending', 'resolved')",
+    const complaintsResult = await ownClient.query(
+      "SELECT * FROM complaints WHERE volunteer_id = $1 AND status IN ('pending', 'resolved') AND penalty_revoked = false",
       [volunteerId]
     );
     const recentComplaints = complaintsResult.rows as Complaint[];
 
-    const noShowResult = await client.query(
+    const noShowResult = await ownClient.query(
       'SELECT COUNT(*) as count FROM service_records WHERE volunteer_id = $1 AND is_no_show = true',
       [volunteerId]
     );
@@ -106,7 +110,7 @@ export const recalculateCreditScore = async (
     };
 
     if (changeAmount !== 0) {
-      await client.query(
+      await ownClient.query(
         'UPDATE volunteers SET credit_score = $1 WHERE id = $2',
         [afterScore, volunteerId]
       );
@@ -114,7 +118,9 @@ export const recalculateCreditScore = async (
 
     return { beforeScore, afterScore, changeAmount, breakdown };
   } finally {
-    client.release();
+    if (!existingClient) {
+      ownClient.release();
+    }
   }
 };
 
@@ -129,17 +135,20 @@ export const logCreditChange = async (
   beforeScore: number,
   afterScore: number,
   relatedId?: string,
-  relatedType?: string
+  relatedType?: string,
+  existingClient?: PoolClient
 ): Promise<void> => {
-  const client = await pool.connect();
+  const ownClient = existingClient ?? await pool.connect();
   try {
-    await client.query(
+    await ownClient.query(
       `INSERT INTO credit_logs (volunteer_id, change_amount, reason, before_score, after_score, related_id, related_type)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [volunteerId, changeAmount, reason, beforeScore, afterScore, relatedId, relatedType]
     );
   } finally {
-    client.release();
+    if (!existingClient) {
+      ownClient.release();
+    }
   }
 };
 

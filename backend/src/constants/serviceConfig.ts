@@ -39,6 +39,10 @@ export const apiEndpoints = [
   'GET  /api/v1/ranking/trend - 趋势数据',
   'POST /api/v1/complaints - 创建投诉',
   'POST /api/v1/complaints/:id/handle - 处理投诉',
+  'POST /api/v1/complaints/:id/appeals - 志愿者七日内提交申诉',
+  'GET  /api/v1/complaints/appeals - 申诉列表(管理员)',
+  'GET  /api/v1/complaints/appeals/:id - 申诉详情(管理员)',
+  'POST /api/v1/complaints/appeals/:id/review - 审核申诉(管理员)',
   'POST /api/v1/admin/adjust-points - 调整积分',
   'POST /api/v1/admin/adjust-credit - 调整信用分',
 ];

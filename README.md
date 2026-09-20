@@ -26,6 +26,25 @@ docker compose down -v --remove-orphans
 - 志愿者档案与服务记录
 - 积分、徽章和信用分计算
 - 投诉处理、后台调整和排行榜
+- 申诉闭环：投诉确认后七日内志愿者可申请复核，管理员批准则撤销对应积分与信用处罚
+
+## 投诉申诉闭环
+
+投诉被确认成立（`resolved`）后进入七日申诉期（截止期记录在投诉的 `appeal_deadline` 字段）：
+
+| 接口 | 角色 | 说明 |
+| --- | --- | --- |
+| `POST /api/v1/complaints/:id/appeals` | 志愿者本人 | 七日内凭理由提交申诉；待处理或已处理期间不能重复提交 |
+| `GET /api/v1/complaints/appeals` | 管理员 | 申诉列表（可按 `status`、`volunteer_id` 过滤） |
+| `GET /api/v1/complaints/appeals/:id` | 管理员 | 申诉详情 |
+| `POST /api/v1/complaints/appeals/:id/review` | 管理员 | `decision=approve` 撤销该投诉的积分与信用处罚；`decision=reject` 仅结束申诉、原处罚不变 |
+
+约束与一致性保证：
+
+- 一条投诉终生只能申诉一次（`complaint_appeals.complaint_id` 唯一索引 + 业务校验）。
+- 批准时在单个数据库事务内完成：积分按原始扣分流水等额返还、等级重算、信用分重算（已撤销投诉不再计入信用惩罚）、投诉与申诉状态同步标记（`overturned`/`approved`/`penalty_revoked`）、写入管理员审计日志。
+- 审核使用行锁与条件更新（`WHERE status = 'pending'`），重复或并发审核只有一次成功；任一步失败整笔回滚。
+- 拒绝申诉只更新申诉状态与审计，不触碰积分和信用分。
 
 ## 本地开发
 

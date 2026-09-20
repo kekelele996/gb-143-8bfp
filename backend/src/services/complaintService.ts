@@ -1,4 +1,4 @@
-import { ApiResponse, Complaint, ComplaintWithCredit, CreditScoreResult } from '../types';
+import { ApiResponse, Complaint, ComplaintAppeal, ComplaintWithAppeal, ComplaintWithCredit, CreditScoreResult } from '../types';
 import pool from '../db/pool';
 import { calculateComplaintPenalty } from './pointsCalculator';
 import { logCreditChange, recalculateCreditScore } from './creditService';
@@ -221,7 +221,8 @@ export const handleComplaint = async (
            credit_penalty = $2,
            points_penalty = $3,
            handled_by = $4,
-           resolved_at = CURRENT_TIMESTAMP
+           resolved_at = CURRENT_TIMESTAMP,
+           appeal_deadline = CURRENT_TIMESTAMP + INTERVAL '7 days'
        WHERE id = $5`,
       [resolution, creditPenalty, pointsPenalty, handledBy, complaintId]
     );
@@ -272,7 +273,7 @@ export const handleComplaint = async (
 
 export const getComplaintById = async (
   complaintId: string
-): Promise<ApiResponse<Complaint>> => {
+): Promise<ApiResponse<ComplaintWithAppeal>> => {
   const client = await pool.connect();
 
   try {
@@ -285,7 +286,31 @@ export const getComplaintById = async (
       return { success: false, error: messages.complaints.notFound };
     }
 
-    return { success: true, data: result.rows[0] };
+    const complaint = result.rows[0];
+
+    const appealResult = await client.query(
+      'SELECT * FROM complaint_appeals WHERE complaint_id = $1',
+      [complaintId]
+    );
+
+    const appeal: ComplaintAppeal | null = appealResult.rows[0] ?? null;
+
+    return {
+      success: true,
+      data: {
+        ...complaint,
+        appeal: appeal
+          ? {
+              ...appeal,
+              deadline: complaint.appeal_deadline,
+              expired:
+                appeal.status === 'pending' &&
+                !!complaint.appeal_deadline &&
+                new Date(complaint.appeal_deadline) < new Date(),
+            }
+          : null,
+      },
+    };
   } finally {
     client.release();
   }

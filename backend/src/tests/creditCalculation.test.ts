@@ -208,7 +208,7 @@ const runTests = async (): Promise<void> => {
 
       console.log('\n--- 用例4.3: 处理投诉(驳回)后信用分恢复 ---');
       const handleReject = await handleComplaint(
-        complaint1.data?.id!,
+        complaint1.data!.id,
         'reject',
         'test-admin',
         '投诉不成立，测试驳回'
@@ -230,7 +230,7 @@ const runTests = async (): Promise<void> => {
       assert('第二个投诉创建成功', complaint2.success === true, '第二个投诉创建失败', complaint2);
 
       const handleResolve = await handleComplaint(
-        complaint2.data?.id!,
+        complaint2.data!.id,
         'resolve',
         'test-admin',
         '投诉成立，扣除积分和信用分',

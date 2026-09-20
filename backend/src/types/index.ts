@@ -86,13 +86,34 @@ export interface Complaint {
   complainant_id?: string;
   complaint_type: string;
   description: string;
-  status: 'pending' | 'resolved' | 'rejected';
+  status: 'pending' | 'resolved' | 'rejected' | 'overturned';
   resolution?: string;
   credit_penalty?: number;
   points_penalty?: number;
   handled_by?: string;
   created_at: Date;
   resolved_at?: Date;
+  appeal_status?: 'pending' | 'approved' | 'rejected' | null;
+  penalty_revoked?: boolean;
+  appeal_deadline?: Date | null;
+}
+
+export interface ComplaintAppeal {
+  id: string;
+  complaint_id: string;
+  volunteer_id: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  review_note?: string;
+  reviewed_by?: string;
+  created_at: Date;
+  reviewed_at?: Date;
+  deadline?: Date;
+  expired?: boolean;
+}
+
+export interface ComplaintWithAppeal extends Complaint {
+  appeal?: ComplaintAppeal | null;
 }
 
 export interface CreditLog {

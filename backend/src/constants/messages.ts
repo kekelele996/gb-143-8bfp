@@ -50,6 +50,19 @@ export const messages = {
     resolved: '投诉已处理',
     handleFailed: '处理投诉失败',
   },
+  appeals: {
+    notFound: '申诉不存在',
+    notResolved: '只有投诉确认成立后的投诉才能申诉',
+    windowExpired: '已超过投诉确认后七日的申诉期限',
+    duplicatePending: '已有待处理的申诉，不能重复提交',
+    duplicateFinished: '该投诉已申诉过，不能重复提交',
+    notOwner: '只能为本人的投诉提交申诉',
+    alreadyReviewed: '该申诉已处理，不能重复审核',
+    approved: '申诉已批准，相关积分与信用处罚已撤销',
+    rejected: '申诉已驳回，原处罚保持不变',
+    reviewFailed: '审核申诉失败',
+    submitFailed: '提交申诉失败',
+  },
   admin: {
     adjustPointsFailed: '调整积分失败',
     adjustCreditFailed: '调整信用分失败',
@@ -63,5 +76,7 @@ export const messages = {
     adjustPointsFailed: '调整积分失败',
     adjustCreditFailed: '调整信用分失败',
     setVolunteerStatusFailed: '设置志愿者状态失败',
+    submitAppealFailed: '提交申诉失败',
+    reviewAppealFailed: '审核申诉失败',
   },
 };
