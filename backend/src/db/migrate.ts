@@ -71,7 +71,7 @@ const createTables = async (): Promise<void> => {
         complainant_id UUID,
         complaint_type VARCHAR(50) NOT NULL,
         description TEXT NOT NULL,
-        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'rejected')),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'rejected', 'revoked')),
         resolution TEXT,
         credit_penalty INTEGER DEFAULT 0,
         points_penalty INTEGER DEFAULT 0,
@@ -82,6 +82,32 @@ const createTables = async (): Promise<void> => {
 
       CREATE INDEX IF NOT EXISTS idx_complaints_volunteer_id ON complaints(volunteer_id);
       CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status);
+    `);
+
+    await client.query(`
+      ALTER TABLE complaints DROP CONSTRAINT IF EXISTS complaints_status_check;
+      ALTER TABLE complaints ADD CONSTRAINT complaints_status_check
+        CHECK (status IN ('pending', 'resolved', 'rejected', 'revoked'));
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS appeals (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        complaint_id UUID NOT NULL REFERENCES complaints(id) ON DELETE CASCADE,
+        volunteer_id UUID NOT NULL REFERENCES volunteers(id) ON DELETE CASCADE,
+        reason TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+        resolution TEXT,
+        handled_by VARCHAR(100),
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        resolved_at TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_appeals_volunteer_id ON appeals(volunteer_id);
+      CREATE INDEX IF NOT EXISTS idx_appeals_complaint_id ON appeals(complaint_id);
+      CREATE INDEX IF NOT EXISTS idx_appeals_status ON appeals(status);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_appeals_one_pending_per_complaint
+        ON appeals(complaint_id) WHERE status = 'pending';
     `);
 
     await client.query(`

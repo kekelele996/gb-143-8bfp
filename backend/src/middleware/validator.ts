@@ -84,6 +84,15 @@ export const handleComplaintSchema = Joi.object({
   severity: Joi.number().integer().min(1).max(3).default(1),
 });
 
+export const appealSchema = Joi.object({
+  reason: Joi.string().min(5).required(),
+});
+
+export const handleAppealSchema = Joi.object({
+  action: Joi.string().valid('approve', 'reject').required(),
+  resolution: Joi.string().min(5).required(),
+});
+
 export const adjustPointsSchema = Joi.object({
   volunteer_id: Joi.string().uuid().required(),
   points_change: Joi.number().integer().required(),

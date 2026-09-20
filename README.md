@@ -26,6 +26,16 @@ docker compose down -v --remove-orphans
 - 志愿者档案与服务记录
 - 积分、徽章和信用分计算
 - 投诉处理、后台调整和排行榜
+- 投诉申诉复核闭环：投诉确认后七日内志愿者可提交申诉（待处理时不可重复提交）；管理员批准后撤销该投诉的积分与信用处罚并同步标记投诉与审计，拒绝则维持原处罚；重复或并发处理只生效一次，任一步失败整体回滚
+
+## 申诉接口
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | /api/v1/complaints/:id/appeals | 提交申诉（志愿者本人或管理员） |
+| GET | /api/v1/appeals | 申诉列表（志愿者仅可见本人） |
+| GET | /api/v1/appeals/:id | 申诉详情 |
+| POST | /api/v1/appeals/:id/handle | 处理申诉（管理员，action: approve/reject） |
 
 ## 本地开发
 

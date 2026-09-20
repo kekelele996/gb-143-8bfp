@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { validateRequest, validateQuery, complaintSchema, handleComplaintSchema, paginationSchema } from '../middleware/validator';
+import { validateRequest, validateQuery, complaintSchema, handleComplaintSchema, appealSchema, paginationSchema } from '../middleware/validator';
 import {
   createComplaint,
   getComplaints,
   handleComplaint,
   getComplaintById,
 } from '../services/complaintService';
+import { createAppeal } from '../services/appealService';
 import { AuthRequest } from '../middleware/auth';
 import { sendInternalError } from '../utils/httpResponses';
 
@@ -63,6 +64,21 @@ router.post('/:id/handle', validateRequest(handleComplaintSchema), async (req: A
     res.status(statusCode).json(result);
   } catch (error) {
     sendInternalError(res, error, 'Error handling complaint');
+  }
+});
+
+router.post('/:id/appeals', validateRequest(appealSchema), async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await createAppeal(
+      req.params.id,
+      req.body.reason,
+      req.user?.id || '',
+      req.user?.role || 'volunteer'
+    );
+    const statusCode = result.success ? 201 : 400;
+    res.status(statusCode).json(result);
+  } catch (error) {
+    sendInternalError(res, error, 'Error creating appeal');
   }
 });
 

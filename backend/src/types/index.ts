@@ -86,10 +86,22 @@ export interface Complaint {
   complainant_id?: string;
   complaint_type: string;
   description: string;
-  status: 'pending' | 'resolved' | 'rejected';
+  status: 'pending' | 'resolved' | 'rejected' | 'revoked';
   resolution?: string;
   credit_penalty?: number;
   points_penalty?: number;
+  handled_by?: string;
+  created_at: Date;
+  resolved_at?: Date;
+}
+
+export interface Appeal {
+  id: string;
+  complaint_id: string;
+  volunteer_id: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  resolution?: string;
   handled_by?: string;
   created_at: Date;
   resolved_at?: Date;

@@ -1,5 +1,6 @@
 import { Volunteer, ServiceRecord, Complaint, CreditLog, CreditScoreResult } from '../types';
 import pool from '../db/pool';
+import { PoolClient } from 'pg';
 
 const MIN_CREDIT_SCORE = 0;
 const MAX_CREDIT_SCORE = 120;
@@ -31,12 +32,13 @@ export const calculateCreditScore = (
 };
 
 export const recalculateCreditScore = async (
-  volunteerId: string
+  volunteerId: string,
+  client?: PoolClient
 ): Promise<CreditScoreResult | null> => {
-  const client = await pool.connect();
+  const conn = client ?? (await pool.connect());
 
   try {
-    const volunteerResult = await client.query(
+    const volunteerResult = await conn.query(
       'SELECT * FROM volunteers WHERE id = $1',
       [volunteerId]
     );
@@ -48,19 +50,19 @@ export const recalculateCreditScore = async (
     const volunteer = volunteerResult.rows[0] as Volunteer;
     const beforeScore = volunteer.credit_score;
 
-    const servicesResult = await client.query(
+    const servicesResult = await conn.query(
       'SELECT * FROM service_records WHERE volunteer_id = $1 ORDER BY recorded_at DESC LIMIT 50',
       [volunteerId]
     );
     const recentServices = servicesResult.rows as ServiceRecord[];
 
-    const complaintsResult = await client.query(
+    const complaintsResult = await conn.query(
       "SELECT * FROM complaints WHERE volunteer_id = $1 AND status IN ('pending', 'resolved')",
       [volunteerId]
     );
     const recentComplaints = complaintsResult.rows as Complaint[];
 
-    const noShowResult = await client.query(
+    const noShowResult = await conn.query(
       'SELECT COUNT(*) as count FROM service_records WHERE volunteer_id = $1 AND is_no_show = true',
       [volunteerId]
     );
@@ -106,7 +108,7 @@ export const recalculateCreditScore = async (
     };
 
     if (changeAmount !== 0) {
-      await client.query(
+      await conn.query(
         'UPDATE volunteers SET credit_score = $1 WHERE id = $2',
         [afterScore, volunteerId]
       );
@@ -114,7 +116,9 @@ export const recalculateCreditScore = async (
 
     return { beforeScore, afterScore, changeAmount, breakdown };
   } finally {
-    client.release();
+    if (!client) {
+      conn.release();
+    }
   }
 };
 
@@ -129,17 +133,20 @@ export const logCreditChange = async (
   beforeScore: number,
   afterScore: number,
   relatedId?: string,
-  relatedType?: string
+  relatedType?: string,
+  client?: PoolClient
 ): Promise<void> => {
-  const client = await pool.connect();
+  const conn = client ?? (await pool.connect());
   try {
-    await client.query(
+    await conn.query(
       `INSERT INTO credit_logs (volunteer_id, change_amount, reason, before_score, after_score, related_id, related_type)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [volunteerId, changeAmount, reason, beforeScore, afterScore, relatedId, relatedType]
     );
   } finally {
-    client.release();
+    if (!client) {
+      conn.release();
+    }
   }
 };
 
